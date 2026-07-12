@@ -9,7 +9,7 @@ from google.api_core.exceptions import GoogleAPIError
 # -----------------------------
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-model = genai.GenerativeModel("gemini-3.5-flash")
+model = genai.GenerativeModel("gemini-flash-latest")
 
 # -----------------------------
 # Page Configuration
