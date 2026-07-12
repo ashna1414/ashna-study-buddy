@@ -1,6 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 import os
+import json
+import re
 from google.api_core.exceptions import GoogleAPIError
 
 # -----------------------------
@@ -111,6 +113,15 @@ st.markdown("""
 Your Personal AI Learning Assistant 🚀
 </div>
 """, unsafe_allow_html=True)
+
+# -----------------------------
+# Session State Setup (for interactive quiz)
+# -----------------------------
+if "quiz_data" not in st.session_state:
+    st.session_state.quiz_data = None
+
+if "quiz_checked" not in st.session_state:
+    st.session_state.quiz_checked = False
 
 # -----------------------------
 # Topic
@@ -237,28 +248,33 @@ Explain briefly why the example fits the topic.
 
     elif action == "Quiz":
 
+        # Reset previous quiz state since a new quiz is being generated
+        st.session_state.quiz_data = None
+        st.session_state.quiz_checked = False
+
         prompt = f"""
-Create exactly 5 multiple-choice questions on {topic}.
+Create exactly 5 multiple-choice questions on the topic "{topic}".
 
-Format each question exactly like this:
+Respond with ONLY valid JSON (no markdown, no code fences, no extra text)
+in exactly this structure:
 
-Q1. Question
+{{
+  "questions": [
+    {{
+      "question": "Question text here",
+      "options": {{
+        "A": "Option A text",
+        "B": "Option B text",
+        "C": "Option C text",
+        "D": "Option D text"
+      }},
+      "correct": "A",
+      "explanation": "Short explanation of why this answer is correct."
+    }}
+  ]
+}}
 
-A. Option 1
-B. Option 2
-C. Option 3
-D. Option 4
-
-Repeat for all 5 questions.
-
-At the end write:
-
-Answers:
-1. B
-2. A
-3. D
-4. C
-5. B
+Generate 5 items in the "questions" list.
 """
 
     elif action == "Tips":
@@ -295,18 +311,35 @@ Keep the answer simple, clear, and under 200 words.
 
             response = model.generate_content(prompt)
 
-        st.markdown("## ✨ AI Response")
+        if action == "Quiz":
 
-        st.markdown(
-            f"""
+            # Clean up response in case the model wraps it in ```json fences
+            raw_text = response.text.strip()
+            raw_text = re.sub(r"^```json", "", raw_text).strip()
+            raw_text = re.sub(r"^```", "", raw_text).strip()
+            raw_text = re.sub(r"```$", "", raw_text).strip()
+
+            try:
+                quiz_json = json.loads(raw_text)
+                st.session_state.quiz_data = quiz_json.get("questions", [])
+                st.session_state.quiz_checked = False
+            except json.JSONDecodeError:
+                st.error("Couldn't parse the quiz. Please click Quiz again.")
+
+        else:
+
+            st.markdown("## ✨ AI Response")
+
+            st.markdown(
+                f"""
 <div class="response-box">
 
 {response.text}
 
 </div>
 """,
-            unsafe_allow_html=True
-        )
+                unsafe_allow_html=True
+            )
 
     except GoogleAPIError as e:
 
@@ -315,3 +348,85 @@ Keep the answer simple, clear, and under 200 words.
     except Exception as e:
 
         st.error(e)
+
+
+# -----------------------------
+# Interactive Quiz Display
+# -----------------------------
+if st.session_state.quiz_data:
+
+    st.markdown("---")
+    st.markdown("## ❓ Quiz")
+
+    user_answers = {}
+
+    for i, q in enumerate(st.session_state.quiz_data):
+
+        st.markdown(f"**Q{i+1}. {q['question']}**")
+
+        option_labels = [f"{key}. {value}" for key, value in q["options"].items()]
+
+        selected = st.radio(
+            "Choose an answer:",
+            option_labels,
+            key=f"quiz_q_{i}",
+            index=None,
+            label_visibility="collapsed"
+        )
+
+        if selected:
+            user_answers[i] = selected[0]  # first character is the option letter
+
+        st.write("")
+
+    if st.button("✅ Check Answers"):
+        st.session_state.quiz_checked = True
+        st.session_state.user_answers = user_answers
+
+    if st.session_state.quiz_checked:
+
+        st.markdown("## 📊 Results")
+
+        score = 0
+
+        for i, q in enumerate(st.session_state.quiz_data):
+
+            picked = st.session_state.user_answers.get(i)
+            correct = q["correct"]
+
+            if picked == correct:
+                score += 1
+                st.markdown(
+                    f"""
+<div class="response-box">
+
+✅ **Q{i+1}: Correct!**
+
+Your answer: **{picked}**
+
+{q['explanation']}
+
+</div>
+""",
+                    unsafe_allow_html=True
+                )
+            else:
+                picked_display = picked if picked else "No answer selected"
+                st.markdown(
+                    f"""
+<div class="response-box">
+
+❌ **Q{i+1}: Incorrect**
+
+Your answer: **{picked_display}** | Correct answer: **{correct}**
+
+{q['explanation']}
+
+</div>
+""",
+                    unsafe_allow_html=True
+                )
+
+            st.write("")
+
+        st.markdown(f"### 🏆 Final Score: {score} / {len(st.session_state.quiz_data)}")
