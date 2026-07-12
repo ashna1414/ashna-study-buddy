@@ -1,12 +1,13 @@
 
 import streamlit as st
 import google.generativeai as genai
+import os
 from google.api_core.exceptions import GoogleAPIError
 
 # -----------------------------
 # Configure Gemini API
 # -----------------------------
-genai.configure(api_key="GOOGLE_API_KEY")
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 model = genai.GenerativeModel("gemini-3.5-flash")
 
