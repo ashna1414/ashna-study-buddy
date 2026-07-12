@@ -1,4 +1,3 @@
-
 import streamlit as st
 import google.generativeai as genai
 import os
@@ -228,24 +227,38 @@ Use bullet points wherever possible.
     elif action == "Example":
 
         prompt = f"""
-Give ONE easy real-life example of {topic}.
+You are Ashna Study Buddy.
 
-Explain it step by step in simple language.
+Give one clear, simple, real-world example that helps explain the topic "{topic}".
+
+Keep it beginner-friendly and under 150 words.
+Explain briefly why the example fits the topic.
 """
 
     elif action == "Quiz":
 
         prompt = f"""
-Create 5 multiple-choice questions on {topic}.
+Create exactly 5 multiple-choice questions on {topic}.
 
-Each question should have:
+Format each question exactly like this:
 
-A)
-B)
-C)
-D)
+Q1. Question
 
-After all questions, provide the correct answer and one-line explanation.
+A. Option 1
+B. Option 2
+C. Option 3
+D. Option 4
+
+Repeat for all 5 questions.
+
+At the end write:
+
+Answers:
+1. B
+2. A
+3. D
+4. C
+5. B
 """
 
     elif action == "Tips":
